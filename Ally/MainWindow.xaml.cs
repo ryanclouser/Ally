@@ -187,7 +187,7 @@ namespace Ally
                 {
                 }
 
-                await Task.Delay(5000);
+                await Task.Delay(2000);
             }
         }
 
@@ -402,7 +402,10 @@ namespace Ally
                     {
                         this.Invoke(() =>
                         {
-                            this.holdings[account.account] = holdings;
+                            lock (this.holdings)
+                            {
+                                this.holdings[account.account] = holdings;
+                            }
                         });
                     }
                 }
@@ -430,7 +433,10 @@ namespace Ally
 
                         this.Invoke(() =>
                         {
-                            this.history[account.account] = history;
+                            lock (this.history)
+                            {
+                                this.history[account.account] = history;
+                            }
                         });
                     }
                 }
@@ -446,123 +452,132 @@ namespace Ally
             var account = GetSelectedAccount();
             if (account != null)
             {
-                List<AllyApi.Transaction> history;
-                if (this.history.TryGetValue(account.account, out history))
+                lock (this.history)
                 {
-                    if (history.Count != Trades.Items.Count)
+                    List<AllyApi.Transaction> history;
+                    if (this.history.TryGetValue(account.account, out history))
                     {
-                        Trades.Items.Clear();
-                        foreach (var h in history)
+                        if (history.Count != Trades.Items.Count)
                         {
-                            var t = new UITrade() { Price = h.price, Shares = h.quantity, Symbol = h.security.sym, Date = h.tradedate, Type = (h.side == 1 ? "BUY" : "SELL") };
-                            Trades.Items.Add(t);
-                        }
-                    }
-                }
-                else
-                {
-                    Trades.Items.Clear();
-                }
-
-                List<AllyApi.ExecRpt> orders;
-                if (this.orders.TryGetValue(account.account, out orders))
-                {
-                    if (orders.Count != Orders.Items.Count)
-                    {
-                        Orders.Items.Clear();
-                        foreach (var o in orders)
-                        {
-                            var t = new UITrade() { Account = o.Acct, ID = o.OrdID, Price = o.Px, Shares = o.OrdQty.Qty, Symbol = o.Instrmt.Sym, Date = o.TrdDt, Type = (o.Side == 1 ? "BUY" : "SELL"), Trade = o };
-
-                            if (o.Stat == 0)
+                            Trades.Items.Clear();
+                            foreach (var h in history)
                             {
-                                t.State = "Working";
+                                var t = new UITrade() { Price = h.price, Shares = h.quantity, Symbol = h.security.sym, Date = h.tradedate, Type = (h.side == 1 ? "BUY" : "SELL") };
+                                Trades.Items.Add(t);
                             }
-                            else if (o.Stat == 2)
-                            {
-                                t.State = "Executed";
-                            }
-                            else if (o.Stat == 4)
-                            {
-                                t.State = "Canceled";
-                            }
-                            else if (o.Stat == 8)
-                            {
-                                t.State = "Rejected";
-                            }
-                            else if (o.Stat == 9)
-                            {
-                                t.State = "Pending";
-                            }
-
-                            Orders.Items.Add(t);
                         }
                     }
                     else
                     {
-                        // Refresh state
-                        for (int x = 0; x < orders.Count; ++x)
-                        {
-                            var o = orders[x];
-                            var t = (Orders.Items[x] as UITrade);
-
-                            if (o.Stat != t.Trade.Stat && (AllyApi.OrderState)o.Stat == AllyApi.OrderState.Executed)
-                            {
-                                Toast("Ally", string.Format("Filled {0} for {1} @ {2:C2} on {3}", o.OrdQty.Qty, o.Instrmt.Sym, o.Px, o.Acct));
-                            }
-
-                            t.Trade = o;
-
-                            if (o.Stat == 0)
-                            {
-                                t.State = "Working";
-                            }
-                            else if (o.Stat == 2)
-                            {
-                                t.State = "Executed";
-                            }
-                            else if (o.Stat == 4)
-                            {
-                                t.State = "Canceled";
-                            }
-                            else if (o.Stat == 8)
-                            {
-                                t.State = "Rejected";
-                            }
-                            else if (o.Stat == 9)
-                            {
-                                t.State = "Pending";
-                            }
-
-                            Orders.Items[x] = t;
-                        }
-
-                        Orders.Items.Refresh();
+                        Trades.Items.Clear();
                     }
                 }
-                else
+
+                lock (this.orders)
                 {
-                    Orders.Items.Clear();
+                    List<AllyApi.ExecRpt> orders;
+                    if (this.orders.TryGetValue(account.account, out orders))
+                    {
+                        if (orders.Count != Orders.Items.Count)
+                        {
+                            Orders.Items.Clear();
+                            foreach (var o in orders)
+                            {
+                                var t = new UITrade() { Account = o.Acct, ID = o.OrdID, Price = o.Px, Shares = o.OrdQty.Qty, Symbol = o.Instrmt.Sym, Date = o.TrdDt, Type = (o.Side == 1 ? "BUY" : "SELL"), Trade = o };
+
+                                if (o.Stat == 0)
+                                {
+                                    t.State = "Working";
+                                }
+                                else if (o.Stat == 2)
+                                {
+                                    t.State = "Executed";
+                                }
+                                else if (o.Stat == 4)
+                                {
+                                    t.State = "Canceled";
+                                }
+                                else if (o.Stat == 8)
+                                {
+                                    t.State = "Rejected";
+                                }
+                                else if (o.Stat == 9)
+                                {
+                                    t.State = "Pending";
+                                }
+
+                                Orders.Items.Add(t);
+                            }
+                        }
+                        else
+                        {
+                            // Refresh state
+                            for (int x = 0; x < orders.Count; ++x)
+                            {
+                                var o = orders[x];
+                                var t = (Orders.Items[x] as UITrade);
+
+                                if (o.Stat != t.Trade.Stat && (AllyApi.OrderState)o.Stat == AllyApi.OrderState.Executed)
+                                {
+                                    Toast("Ally", string.Format("Filled {0} for {1} @ {2:C2} on {3}", o.OrdQty.Qty, o.Instrmt.Sym, o.Px, o.Acct));
+                                }
+
+                                t.Trade = o;
+
+                                if (o.Stat == 0)
+                                {
+                                    t.State = "Working";
+                                }
+                                else if (o.Stat == 2)
+                                {
+                                    t.State = "Executed";
+                                }
+                                else if (o.Stat == 4)
+                                {
+                                    t.State = "Canceled";
+                                }
+                                else if (o.Stat == 8)
+                                {
+                                    t.State = "Rejected";
+                                }
+                                else if (o.Stat == 9)
+                                {
+                                    t.State = "Pending";
+                                }
+
+                                Orders.Items[x] = t;
+                            }
+
+                            Orders.Items.Refresh();
+                        }
+                    }
+                    else
+                    {
+                        Orders.Items.Clear();
+                    }
                 }
 
-                Position.Content = string.Empty;
-                List<AllyApi.Account.Holding> holdings;
-                if (this.holdings.TryGetValue(account.account, out holdings) && holdings != null)
+                lock (this.holdings)
                 {
-                    foreach (var h in holdings)
+                    Position.Content = string.Empty;
+                    List<AllyApi.Account.Holding> holdings;
+                    if (this.holdings.TryGetValue(account.account, out holdings) && holdings != null)
                     {
-                        if (h.instrument.sym == CurrentSymbol)
+                        foreach (var h in holdings)
                         {
-                            Position.Content = string.Format("{0} @ {1:C2} - {2:C2}", h.qty, h.purchaseprice, h.gainloss);
+                            if (h.instrument.sym == CurrentSymbol)
+                            {
+                                Position.Content = string.Format("{0} @ {1:C2} - {2:C2}", h.qty, h.purchaseprice, h.gainloss);
 
-                            if (h.gainloss > 0)
-                                Position.Foreground = Brushes.Green;
-                            else if (h.gainloss < 0)
-                                Position.Foreground = Brushes.Red;
-                            else
-                                Position.Foreground = Brushes.Black;
+                                if (h.gainloss > 0)
+                                    Position.Foreground = Brushes.Green;
+                                else if (h.gainloss < 0)
+                                    Position.Foreground = Brushes.Red;
+                                else
+                                    Position.Foreground = Brushes.Black;
 
-                            break;
+                                break;
+                            }
                         }
                     }
                 }
@@ -586,7 +601,10 @@ namespace Ally
 
                         this.Invoke(() =>
                         {
-                            this.orders[account.account] = orders;
+                            lock (this.orders)
+                            {
+                                this.orders[account.account] = orders;
+                            }
                         });
                     }
                 }
@@ -669,8 +687,12 @@ namespace Ally
 
                     if (o != null)
                     {
-                        if (orders[account.account].Find(T => T.OrdID == o.OrdID) == null)
-                            orders[account.account].Insert(0, o);
+                        lock (orders)
+                        {
+                            if (orders[account.account].Find(T => T.OrdID == o.OrdID) == null)
+                                orders[account.account].Insert(0, o);
+                        }
+
                         RefreshUI();
                     }
                     else
@@ -713,8 +735,11 @@ namespace Ally
 
                     if (o != null)
                     {
-                        if (orders[account.account].Find(T => T.OrdID == o.OrdID) == null)
-                            orders[account.account].Insert(0, o);
+                        lock (orders)
+                        {
+                            if (orders[account.account].Find(T => T.OrdID == o.OrdID) == null)
+                                orders[account.account].Insert(0, o);
+                        }
 
                         RefreshUI();
                     }

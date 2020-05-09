@@ -394,8 +394,6 @@ namespace Ally
 
             var response = await client.ExecuteAsync(request);
 
-            Debug.WriteLine(response.Content);
-
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 JObject o = JObject.Parse(response.Content);
@@ -807,7 +805,6 @@ namespace Ally
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                Debug.WriteLine(response.Content);
                 JObject o = JObject.Parse(response.Content);
 
                 if ((string)o["response"]["error"] == "Success")
@@ -876,8 +873,6 @@ namespace Ally
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                Debug.WriteLine(response.Content);
-
                 JObject o = JObject.Parse(response.Content);
 
                 if ((string)o["response"]["error"] == "Success")
@@ -943,8 +938,6 @@ namespace Ally
             request.AddUrlSegment("id", account);
             request.AddParameter("application/xml", XmlToString(xml), ParameterType.RequestBody);
             var response = await client.ExecuteAsync(request);
-
-            Debug.WriteLine(response.Content);
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
