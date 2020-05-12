@@ -166,13 +166,13 @@ namespace Ally
                         sw.Restart();
                     }
 
-                    var t1 = RefreshHoldings();
-                    var t2 = RefreshHistory();
-                    var t3 = RefreshOrders();
+                    await RefreshHoldings();
+                    await Task.Delay(2000);
 
-                    await t1;
-                    await t2;
-                    await t3;
+                    await RefreshHistory();
+                    await Task.Delay(2000);
+
+                    await RefreshOrders();
 
                     this.Invoke(() =>
                     {
